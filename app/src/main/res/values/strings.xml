@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">EngCalc</string>
+
+    <string name="title_calculator">Calculator</string>
+    <string name="title_plot">Plots</string>
+    <string name="title_settings">Settings</string>
+
+    <string name="action_plots">Plots</string>
+    <string name="action_settings">Settings</string>
+    <string name="hint_expression">Enter expression</string>
+
+    <string name="btn_dot">.</string>
+</resources>

@@ -1,0 +1,13 @@
+<resources>
+    <string name="app_name">ИнжКальк</string>
+
+    <string name="title_calculator">Калькулятор</string>
+    <string name="title_plot">Графики</string>
+    <string name="title_settings">Настройки</string>
+
+    <string name="action_plots">Графики</string>
+    <string name="action_settings">Настройки</string>
+    <string name="hint_expression">Введите выражение</string>
+
+    <string name="btn_dot">,</string>
+</resources>
