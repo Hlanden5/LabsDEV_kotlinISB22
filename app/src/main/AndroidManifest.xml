@@ -8,7 +8,11 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Lab24"
-        android:localeConfig="@xml/locale_config">
+        android:localeConfig="@xml/locales_config">
+
+        <meta-data
+            android:name="androidx.appcompat.app.AutoStoreLocales"
+            android:value="true" />
 
         <activity
             android:name=".SettingsActivity"
@@ -31,4 +35,5 @@
         </activity>
 
     </application>
+
 </manifest>
