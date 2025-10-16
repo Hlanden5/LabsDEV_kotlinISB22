@@ -1,13 +1,22 @@
 <resources>
-    <string name="app_name">ИнжКальк</string>
-
+    <string name="app_name">Инженерный калькулятор</string>
     <string name="title_calculator">Калькулятор</string>
-    <string name="title_plot">Графики</string>
-    <string name="title_settings">Настройки</string>
-
+    <string name="hint_expression">Введите выражение</string>
     <string name="action_plots">Графики</string>
     <string name="action_settings">Настройки</string>
-    <string name="hint_expression">Введите выражение</string>
+    <string name="btn_dot">.</string>
+    <string name="title_plot">График функции</string>
+    <string name="label_function">Функция f(x) =</string>
+    <string name="label_xmin">Xmin</string>
+    <string name="label_xmax">Xmax</string>
+    <string name="error_parse">Ошибка разбора выражения</string>
+    <string name="title_settings">Настройки</string>
+    <string name="section_appearance">Внешний вид</string>
+    <string name="section_language">Язык</string>
+    <string name="dark_theme">Тёмная тема</string>
+    <string name="lang_system">Системный</string>
+    <string name="lang_en">Английский</string>
+    <string name="lang_ru">Русский</string>
+    <string name="note_apply">Тема и язык сохраняются и применяются сразу.</string>
 
-    <string name="btn_dot">,</string>
 </resources>

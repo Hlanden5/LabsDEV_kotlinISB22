@@ -1,13 +1,21 @@
 <resources>
-    <string name="app_name">EngCalc</string>
-
+    <string name="app_name">Engineering Calculator</string>
     <string name="title_calculator">Calculator</string>
-    <string name="title_plot">Plots</string>
-    <string name="title_settings">Settings</string>
-
+    <string name="hint_expression">Enter expression</string>
     <string name="action_plots">Plots</string>
     <string name="action_settings">Settings</string>
-    <string name="hint_expression">Enter expression</string>
-
     <string name="btn_dot">.</string>
+    <string name="title_plot">Plot</string>
+    <string name="label_function">Function f(x) =</string>
+    <string name="label_xmin">Xmin</string>
+    <string name="label_xmax">Xmax</string>
+    <string name="error_parse">Parse error</string>
+    <string name="title_settings">Settings</string>
+    <string name="section_appearance">Appearance</string>
+    <string name="section_language">Language</string>
+    <string name="dark_theme">Dark theme</string>
+    <string name="lang_system">System default</string>
+    <string name="lang_en">English</string>
+    <string name="lang_ru">Russian</string>
+    <string name="note_apply">Theme and language are applied immediately.</string>
 </resources>
