@@ -4,15 +4,17 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.runtime.collectAsState
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.ExperimentalTextApi
 import androidx.compose.ui.text.TextStyle
@@ -21,18 +23,19 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.calculator.lab2_4.ui.theme.Lab24Theme
-import kotlin.math.abs
-import kotlin.math.ceil
-import kotlin.math.floor
-import kotlin.math.log10
-import kotlin.math.pow
-import androidx.appcompat.app.AppCompatActivity
-class PlotActivity : AppCompatActivity() {
+import kotlin.math.*
+
+class PlotActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
+            // читаем тёмную тему из SettingsRepo
             val dark by SettingsRepo.darkFlow(this@PlotActivity).collectAsState(initial = false)
-            Lab24Theme(darkTheme = dark) { PlotScreen() }
+            Lab24Theme(darkTheme = dark) {
+                Surface(color = MaterialTheme.colorScheme.background) {
+                    PlotScreen()
+                }
+            }
         }
     }
 }
@@ -40,167 +43,249 @@ class PlotActivity : AppCompatActivity() {
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalTextApi::class)
 @Composable
 fun PlotScreen() {
-    val curveColor = MaterialTheme.colorScheme.primary
-    val axisColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
-
     var expr by remember { mutableStateOf("sin(x)") }
-    var xMinText by remember { mutableStateOf("-10") }
-    var xMaxText by remember { mutableStateOf("10") }
-
     val compileResult = remember(expr) { Calculator.compile(expr) }
+    val TARGET_GRID_PX = 64f
+    var scale by remember { mutableStateOf(TARGET_GRID_PX) }
+    var cx by remember { mutableStateOf(0f) }
+    var cy by remember { mutableStateOf(0f) }
+    var lastTouch by remember { mutableStateOf<Offset?>(null) }
 
     val textMeasurer = rememberTextMeasurer()
     val labelStyle = MaterialTheme.typography.labelSmall.merge(
-        TextStyle(fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
+        TextStyle(fontSize = 10.sp, color = MaterialTheme.colorScheme.onSurface.copy(0.85f))
     )
-    val density = LocalDensity.current
-    val tickLen = with(density) { 4.dp.toPx() }
-    val pad = with(density) { 2.dp.toPx() }
 
-    Scaffold(
-        topBar = { TopAppBar(title = { Text(stringResource(R.string.title_plot)) }) }
-    ) { inner ->
+    val gridMinor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val gridMajor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.28f)
+    val axisColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f)
+    val curveColor = MaterialTheme.colorScheme.primary
+    val crosshairColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
+    val tooltipBg = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f)
+    val tooltipFg = MaterialTheme.colorScheme.onSurface
+
+    Scaffold(topBar = { TopAppBar(title = { Text(stringResource(R.string.title_plot)) }) }) { inner ->
         Column(
             modifier = Modifier
                 .padding(inner)
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            OutlinedTextField(
-                value = expr,
-                onValueChange = { expr = it },
-                label = { Text("f(x) =") },
-                singleLine = true,
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.fillMaxWidth()
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            ) {
                 OutlinedTextField(
-                    value = xMinText,
-                    onValueChange = { xMinText = it },
-                    label = { Text("Xmin") },
+                    value = expr,
+                    onValueChange = { expr = it },
+                    label = { Text(stringResource(R.string.label_function)) },
                     singleLine = true,
                     modifier = Modifier.weight(1f)
                 )
-                OutlinedTextField(
-                    value = xMaxText,
-                    onValueChange = { xMaxText = it },
-                    label = { Text("Xmax") },
-                    singleLine = true,
-                    modifier = Modifier.weight(1f)
+                Button(onClick = { cx = 0f; cy = 0f; scale = TARGET_GRID_PX }) {
+                    Text(stringResource(R.string.reset))
+                }
+            }
+
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                AssistChip(
+                    onClick = {},
+                    label = { Text("${stringResource(R.string.scale_label)}: %.2f".format(scale)) }
+                )
+                AssistChip(
+                    onClick = {},
+                    label = { Text("${stringResource(R.string.center_label)}: (%.2f; %.2f)".format(cx, cy)) }
                 )
             }
 
             if (compileResult.isFailure) {
                 Text(
-                    "Ошибка разбора: ${compileResult.exceptionOrNull()?.message}",
+                    "${stringResource(R.string.error_parse)}: ${compileResult.exceptionOrNull()?.message}",
                     color = MaterialTheme.colorScheme.error
                 )
             }
 
-            Canvas(Modifier.fillMaxWidth().height(280.dp)) {
-                val w = size.width
-                val h = size.height
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+            ) {
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .pointerInput(Unit) {
+                            detectTransformGestures { centroid, pan, zoom, _ ->
+                                val pre = screenToWorld(
+                                    centroid,
+                                    size.width.toFloat(),
+                                    size.height.toFloat(),
+                                    cx,
+                                    cy,
+                                    scale
+                                )
+                                scale = (scale * zoom).coerceIn(8f, 2000f)
+                                val post = screenToWorld(
+                                    centroid,
+                                    size.width.toFloat(),
+                                    size.height.toFloat(),
+                                    cx,
+                                    cy,
+                                    scale
+                                )
+                                cx += pre.x - post.x
+                                cy += pre.y - post.y
+                                cx -= pan.x / scale
+                                cy += pan.y / scale
+                                lastTouch = centroid
+                            }
+                        }
+                ) {
+                    val w = size.width
+                    val h = size.height
 
-                val xMin = xMinText.toDoubleOrNull() ?: -10.0
-                val xMax = xMaxText.toDoubleOrNull() ?: 10.0
-                val xSpan = (xMax - xMin).takeIf { it != 0.0 } ?: 1.0
+                    fun worldToScreenX(x: Float) = (x - cx) * scale + w / 2f
+                    fun worldToScreenY(y: Float) = (cy - y) * scale + h / 2f
+                    fun screenToWorldX(px: Float) = cx + (px - w / 2f) / scale
+                    fun screenToWorldY(py: Float) = cy - (py - h / 2f) / scale
 
-                compileResult.getOrNull()?.let { f ->
-                    val n = w.toInt().coerceIn(200, 1600)
-                    val xs = (0..n).map { i -> xMin + xSpan * i / n }
-                    val ys = xs.map { x -> runCatching { f(x) }.getOrElse { Double.NaN } }
-                    val valid = ys.filter { it.isFinite() }
-                    if (valid.isEmpty()) return@Canvas
+                    val minX = screenToWorldX(0f)
+                    val maxX = screenToWorldX(w)
+                    val minY = screenToWorldY(h)
+                    val maxY = screenToWorldY(0f)
 
+                    val step = niceStepFromApprox((TARGET_GRID_PX / scale).toDouble()).toFloat()
+                    val majorEvery = 5
 
-                    var yMin = valid.minOrNull() ?: -1.0
-                    var yMax = valid.maxOrNull() ?:  1.0
-                    var ySpan = yMax - yMin
-                    if (ySpan < 1e-9) {
-                        val c = yMin
-                        yMin = c - 1.0
-                        yMax = c + 1.0
-                        ySpan = 2.0
-                    }
-
-                    val s = minOf(w / xSpan.toFloat(), h / ySpan.toFloat())
-                    val xC = ((xMin + xMax) / 2.0).toFloat()
-                    val yC = ((yMin + yMax) / 2.0).toFloat()
-                    fun mapX(x: Double) = ((x.toFloat() - xC) * s + w / 2f)
-                    fun mapY(y: Double) = (h / 2f - (y.toFloat() - yC) * s)
-
-                    var xAxisY = Float.NaN
-                    var yAxisX = Float.NaN
-                    if (yMin < 0.0 && yMax > 0.0) {
-                        xAxisY = mapY(0.0)
-                        drawLine(axisColor, Offset(0f, xAxisY), Offset(w, xAxisY), strokeWidth = 2f)
-                    }
-                    if (xMin < 0.0 && xMax > 0.0) {
-                        yAxisX = mapX(0.0)
-                        drawLine(axisColor, Offset(yAxisX, 0f), Offset(yAxisX, h), strokeWidth = 2f)
-                    }
-
-                    fun niceStep(range: Double, maxTicks: Int): Double {
-                        val raw = range / maxTicks
-                        val p = floor(log10(raw)).toInt()
-                        val base = 10.0.pow(p)
-                        return when {
-                            raw <= 1 * base -> 1 * base
-                            raw <= 2 * base -> 2 * base
-                            raw <= 5 * base -> 5 * base
-                            else -> 10 * base
+                    val startX = floor(minX / step).toInt()
+                    val endX = ceil(maxX / step).toInt()
+                    for (i in startX..endX) {
+                        val x = i * step
+                        val px = worldToScreenX(x)
+                        val isMajor = i % majorEvery == 0
+                        drawLine(
+                            color = if (isMajor) gridMajor else gridMinor,
+                            start = Offset(px, 0f),
+                            end = Offset(px, h),
+                            strokeWidth = if (isMajor) 1.4f else 1f
+                        )
+                        if (isMajor) {
+                            val label = fmt(x)
+                            val res = textMeasurer.measure(label, style = labelStyle)
+                            val tx = (px - res.size.width / 2f).coerceIn(0f, w - res.size.width)
+                            val ty = (h - res.size.height - 4f).coerceIn(0f, h - res.size.height)
+                            drawText(textMeasurer, label, topLeft = Offset(tx, ty), style = labelStyle)
                         }
                     }
-                    fun fmt(v: Double): String {
-                        if (abs(v) < 1e-10) return "0"
-                        val s = "%,.6f".format(v).replace(',', '.')
-                        return s.trimEnd('0').trimEnd('.')
+
+                    val startY = floor(minY / step).toInt()
+                    val endY = ceil(maxY / step).toInt()
+                    for (i in startY..endY) {
+                        val y = i * step
+                        val py = worldToScreenY(y)
+                        val isMajor = i % majorEvery == 0
+                        drawLine(
+                            color = if (isMajor) gridMajor else gridMinor,
+                            start = Offset(0f, py),
+                            end = Offset(w, py),
+                            strokeWidth = if (isMajor) 1.4f else 1f
+                        )
+                        if (isMajor) {
+                            val label = fmt(y)
+                            val res = textMeasurer.measure(label, style = labelStyle)
+                            val tx = 4f.coerceIn(0f, w - res.size.width)
+                            val ty = (py - res.size.height / 2f).coerceIn(0f, h - res.size.height)
+                            drawText(textMeasurer, label, topLeft = Offset(tx, ty), style = labelStyle)
+                        }
                     }
 
-                    val xStep = niceStep(xSpan, 6)
-                    var tx = ceil(xMin / xStep) * xStep
-                    val xLabelY = if (!xAxisY.isNaN()) xAxisY + tickLen + pad else h - tickLen - pad
-                    while (tx <= xMax + 1e-9) {
-                        val px = mapX(tx)
-                        val tickTop = if (!xAxisY.isNaN()) xAxisY - tickLen else h - tickLen * 2
-                        val tickBot = if (!xAxisY.isNaN()) xAxisY + tickLen else h
-                        drawLine(axisColor.copy(alpha = 0.7f), Offset(px, tickTop), Offset(px, tickBot), strokeWidth = 1f)
-
-                        val text = fmt(tx)
-                        val res = textMeasurer.measure(text = text, style = labelStyle)
-                        val tl = Offset(px - res.size.width / 2f, xLabelY)
-                        drawText(textMeasurer, text = text, topLeft = tl, style = labelStyle)
-                        tx += xStep
+                    if (minX <= 0 && maxX >= 0) {
+                        val px = worldToScreenX(0f)
+                        drawLine(axisColor, Offset(px, 0f), Offset(px, h), strokeWidth = 2.4f)
+                    }
+                    if (minY <= 0 && maxY >= 0) {
+                        val py = worldToScreenY(0f)
+                        drawLine(axisColor, Offset(0f, py), Offset(w, py), strokeWidth = 2.4f)
                     }
 
-                    val yStep = niceStep(ySpan, 6)
-                    var ty = ceil(yMin / yStep) * yStep
-                    val yLabelX = if (!yAxisX.isNaN()) yAxisX + tickLen + pad else tickLen + pad
-                    while (ty <= yMax + 1e-9) {
-                        val py = mapY(ty)
-                        val tickLeft = if (!yAxisX.isNaN()) yAxisX - tickLen else 0f
-                        val tickRight = if (!yAxisX.isNaN()) yAxisX + tickLen else tickLen * 2
-                        drawLine(axisColor.copy(alpha = 0.7f), Offset(tickLeft, py), Offset(tickRight, py), strokeWidth = 1f)
-
-                        val text = fmt(ty)
-                        val res = textMeasurer.measure(text = text, style = labelStyle)
-                        val tl = Offset(yLabelX, py - res.size.height / 2f)
-                        drawText(textMeasurer, text = text, topLeft = tl, style = labelStyle)
-                        ty += yStep
+                    compileResult.getOrNull()?.let { f ->
+                        val samples = (w / 1.5f).roundToInt().coerceIn(200, 4000)
+                        val dx = (maxX - minX) / samples
+                        val path = Path()
+                        var started = false
+                        var x = minX
+                        for (k in 0..samples) {
+                            val y = runCatching { f(x.toDouble()).toFloat() }.getOrElse { Float.NaN }
+                            if (y.isFinite()) {
+                                val px = worldToScreenX(x)
+                                val py = worldToScreenY(y)
+                                if (!started) {
+                                    path.moveTo(px, py)
+                                    started = true
+                                } else path.lineTo(px, py)
+                            } else started = false
+                            x += dx
+                        }
+                        drawPath(path, color = curveColor, style = Stroke(width = 3.5f))
                     }
 
-                    val path = Path()
-                    xs.indices.forEach { i ->
-                        val y = ys[i]
-                        if (!y.isFinite()) return@forEach
-                        val px = mapX(xs[i])
-                        val py = mapY(y)
-                        if (i == 0) path.moveTo(px, py) else path.lineTo(px, py)
+                    lastTouch?.let { p ->
+                        drawLine(crosshairColor, Offset(p.x, 0f), Offset(p.x, h), 1.2f)
+                        drawLine(crosshairColor, Offset(0f, p.y), Offset(w, p.y), 1.2f)
+                        val wx = screenToWorldX(p.x)
+                        val wy = screenToWorldY(p.y)
+                        val tooltip = "x=${fmt(wx)}\ny=${fmt(wy)}"
+                        val res = textMeasurer.measure(tooltip, style = labelStyle)
+                        val pad = 6f
+                        val boxW = res.size.width + pad * 2f
+                        val boxH = res.size.height + pad * 2f
+                        val bx = (p.x + 10f).coerceIn(0f, w - boxW - 4f)
+                        val by = (p.y + 10f).coerceIn(0f, h - boxH - 4f)
+                        drawRoundRect(
+                            color = tooltipBg,
+                            topLeft = Offset(bx, by),
+                            size = androidx.compose.ui.geometry.Size(boxW, boxH),
+                            cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f)
+                        )
+                        drawText(
+                            textMeasurer, tooltip,
+                            topLeft = Offset(bx + pad, by + pad),
+                            style = labelStyle.copy(color = tooltipFg)
+                        )
                     }
-                    drawPath(path, color = curveColor, style = Stroke(width = 4f))
                 }
             }
         }
     }
+}
+
+private fun screenToWorld(p: Offset, w: Float, h: Float, cx: Float, cy: Float, scale: Float): Offset {
+    val x = cx + (p.x - w / 2f) / scale
+    val y = cy - (p.y - h / 2f) / scale
+    return Offset(x, y)
+}
+
+private fun niceStepFromApprox(approx: Double): Double {
+    val p = floor(log10(approx))
+    val base = 10.0.pow(p)
+    val c = listOf(1.0, 2.0, 2.5, 5.0, 10.0)
+    var best = 1.0
+    var diff = Double.MAX_VALUE
+    for (v in c) {
+        val valStep = v * base
+        val d = abs(approx - valStep)
+        if (d < diff) { diff = d; best = valStep }
+    }
+    return best
+}
+
+private fun fmt(v: Float): String {
+    if (abs(v) < 1e-6f) return "0"
+    val s = "%,.5f".format(v).replace(',', '.')
+    return s.trimEnd('0').trimEnd('.')
 }

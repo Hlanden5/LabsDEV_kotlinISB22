@@ -6,10 +6,12 @@
     <string name="action_settings">Настройки</string>
     <string name="btn_dot">.</string>
     <string name="title_plot">График функции</string>
-    <string name="label_function">Функция f(x) =</string>
-    <string name="label_xmin">Xmin</string>
-    <string name="label_xmax">Xmax</string>
+    <string name="label_function">f(x) =</string>
+    <string name="reset">Сброс</string>
+    <string name="scale_label">Масштаб</string>
+    <string name="center_label">Центр</string>
     <string name="error_parse">Ошибка разбора выражения</string>
+    <string name="plot_title">График функции</string>
     <string name="title_settings">Настройки</string>
     <string name="section_appearance">Внешний вид</string>
     <string name="section_language">Язык</string>
@@ -18,5 +20,5 @@
     <string name="lang_en">Английский</string>
     <string name="lang_ru">Русский</string>
     <string name="note_apply">Тема и язык сохраняются и применяются сразу.</string>
-
 </resources>
+
