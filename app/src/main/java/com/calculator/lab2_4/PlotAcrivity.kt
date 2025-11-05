@@ -29,7 +29,6 @@ class PlotActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            // читаем тёмную тему из SettingsRepo
             val dark by SettingsRepo.darkFlow(this@PlotActivity).collectAsState(initial = false)
             Lab24Theme(darkTheme = dark) {
                 Surface(color = MaterialTheme.colorScheme.background) {
