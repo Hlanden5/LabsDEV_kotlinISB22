@@ -5,11 +5,13 @@
     <string name="action_plots">Plots</string>
     <string name="action_settings">Settings</string>
     <string name="btn_dot">.</string>
-    <string name="title_plot">Plot</string>
-    <string name="label_function">Function f(x) =</string>
-    <string name="label_xmin">Xmin</string>
-    <string name="label_xmax">Xmax</string>
-    <string name="error_parse">Parse error</string>
+    <string name="title_plot">Function Plot</string>
+    <string name="label_function">f(x) =</string>
+    <string name="reset">Reset</string>
+    <string name="scale_label">Scale</string>
+    <string name="center_label">Center</string>
+    <string name="error_parse">Error parsing expression</string>
+    <string name="plot_title">Function Graph</string>
     <string name="title_settings">Settings</string>
     <string name="section_appearance">Appearance</string>
     <string name="section_language">Language</string>
